@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+:root {
+  --background: #0A0A0A;
+  --foreground: #F2F2F2;
+  --card: #111111;
+  --card-secondary: #181818;
+  --border: #2A2A2A;
+  --border-strong: #E5E5E5;
+  --input: #181818;
+  --ring: #C7A45D;
+  --muted: #181818;
+  --muted-foreground: #969696;
+  --subtle-foreground: #666666;
+  --primary: #C7A45D;
+  --primary-foreground: #0A0A0A;
+  --secondary: #181818;
+  --secondary-foreground: #F2F2F2;
+  --accent: #C7A45D;
+  --accent-foreground: #0A0A0A;
+  --success: #4D8C68;
+  --success-foreground: #EAF3EE;
+  --warning: #C7A45D;
+  --warning-foreground: #0A0A0A;
+  --destructive: #B65353;
+  --destructive-foreground: #FBECEC;
+  --popover: #111111;
+  --popover-foreground: #F2F2F2;
+  --radius: 0px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-card-secondary: var(--card-secondary);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
+  --font-sans: var(--font-sans-loaded), 'Inter Fallback', sans-serif;
+  --font-heading: var(--font-heading-loaded), 'Space Grotesk Fallback', sans-serif;
+  --font-display: var(--font-display-loaded), 'Manrope Fallback', sans-serif;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--background);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+.animate-fade-in-delay-1 {
+  animation: fade-in 0.4s ease-out 0.1s both;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fade-in 0.4s ease-out 0.2s both;
+}
+
+.animate-fade-in-delay-3 {
+  animation: fade-in 0.4s ease-out 0.3s both;
+}
