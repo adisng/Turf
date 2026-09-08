@@ -14,12 +14,12 @@ export default async function ProfilePage() {
 
   if (user) {
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name, phone')
+      .from('users')
+      .select('name, mobile')
       .eq('id', user.id)
       .single()
-    fullName = profile?.full_name ?? ''
-    phone = profile?.phone ?? ''
+    fullName = profile?.name ?? ''
+    phone = profile?.mobile ?? ''
   }
 
   return (

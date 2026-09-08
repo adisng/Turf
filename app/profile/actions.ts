@@ -25,8 +25,8 @@ export async function updateProfile(input: {
   }
 
   const { error } = await supabase
-    .from('profiles')
-    .update({ full_name: parsed.data.fullName, phone: parsed.data.phone })
+    .from('users')
+    .update({ name: parsed.data.fullName, mobile: parsed.data.phone })
     .eq('id', user.id)
 
   if (error) {

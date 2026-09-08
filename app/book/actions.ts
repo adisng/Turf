@@ -2,55 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { createHash, randomBytes } from 'node:crypto'
-import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { calculateSplitTotal, isWithinBookingWindow, normalizeEndMinutes } from '@/lib/booking-rules'
+import { AvailableSlotsSchema, BookingIdSchema, CreateBookingSchema } from '@/lib/booking-validation'
 import { generateCandidateSlots, minutesToTime, resolvePricingWindow, timeToMinutes, type PricingWindowRow } from '@/lib/slots'
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/
-
-const BookingDateSchema = z.string().regex(DATE_RE).refine(isValidDate, 'Invalid date')
-const TimeSchema = z.string().regex(TIME_RE)
-const BookingIdSchema = z.string().trim().min(1).max(100)
-const IndianPhoneSchema = z.string().trim().transform((value) => {
-  const digits = value.replace(/\D/g, '')
-  return digits.startsWith('91') && digits.length === 12 ? digits.slice(2) : digits
-}).refine((value) => /^[6-9]\d{9}$/.test(value), 'Invalid Indian mobile number')
-const CreateBookingSchema = z.object({
-  sportId: z.string().trim().min(1).max(100),
-  date: BookingDateSchema,
-  startTime: TimeSchema,
-  endTime: TimeSchema,
-  durationMinutes: z.union([z.literal(30), z.literal(60), z.literal(90), z.literal(120)]),
-  customerName: z.string().trim().min(2).max(100),
-  customerPhone: IndianPhoneSchema,
-  customerEmail: z.string().trim().email().max(254),
-  notes: z.string().trim().max(500).optional(),
-  idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{16,80}$/),
-})
-const AvailableSlotsSchema = z.object({
-  sportId: z.string().trim().min(1).max(100),
-  date: BookingDateSchema,
-  durationMinutes: CreateBookingSchema.shape.durationMinutes,
-})
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function maxBookingDateIso() {
-  const date = new Date(`${todayIso()}T00:00:00Z`)
-  date.setUTCDate(date.getUTCDate() + 30)
-  return date.toISOString().slice(0, 10)
-}
-
-function isWithinBookingWindow(date: string) {
-  return date >= todayIso() && date <= maxBookingDateIso()
-}
-
-function normalizeEndMinutes(start: number, end: number) {
-  return end === 0 && start > 0 ? 1440 : end
-}
 
 export interface SlotOption {
   startTime: string
@@ -60,27 +15,6 @@ export interface SlotOption {
   total: number
   pricingWindowId: string | null
   pricingWindowLabel: string | null
-}
-
-function isValidDate(date: string) {
-  if (!DATE_RE.test(date)) return false
-  const parsed = new Date(`${date}T00:00:00`)
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
-}
-
-function calculateSplitTotal(start: number, rawEnd: number, windows: PricingWindowRow[]) {
-  const end = normalizeEndMinutes(start, rawEnd)
-  let total = 0
-  for (let cursor = start; cursor < end;) {
-    const window = resolvePricingWindow(cursor, windows)
-    if (!window) return null
-    let windowEnd = timeToMinutes(window.end_time)
-    if (windowEnd <= timeToMinutes(window.start_time)) windowEnd += 1440
-    const segmentEnd = Math.min(end, windowEnd)
-    total += ((segmentEnd - cursor) * window.hourly_rate) / 60
-    cursor = segmentEnd
-  }
-  return Math.round(total)
 }
 
 export async function getAvailableSlots(input: { sportId: string; date: string; durationMinutes: number }): Promise<{ slots: SlotOption[] } | { error: string }> {
@@ -166,7 +100,7 @@ export async function getCustomerBookings() {
 }
 
 export async function calculatePrice(input: { startTime: string; endTime: string }) {
-  const parsed = z.object({ startTime: TimeSchema, endTime: TimeSchema }).safeParse(input)
+  const parsed = CreateBookingSchema.pick({ startTime: true, endTime: true }).safeParse(input)
   if (!parsed.success) return { error: 'Invalid time range.' }
   const supabase = await createClient(); const { data, error } = await supabase.from('pricing').select('id, start_time, end_time, price_per_hour').eq('active', true)
   if (error) return { error: 'Could not load pricing.' }

@@ -43,6 +43,8 @@ export const OPERATING_HOURS = {
   label: '6:00 AM – 12:00 AM, every day',
 }
 
+export const MAX_ADVANCE_BOOKING_DAYS = 30
+
 export interface DurationOption {
   minutes: number
   label: string
@@ -85,9 +87,9 @@ export function formatPriceForDuration(hourlyRate: number, minutes: number) {
 }
 
 export const CONTACT_INFO = {
-  address: 'Facility address placeholder — add your turf location here',
-  phone: '+91 00000 00000',
-  email: 'contact@turfbooking.example',
+  address: process.env.NEXT_PUBLIC_CONTACT_ADDRESS || 'Facility address not configured',
+  phone: process.env.NEXT_PUBLIC_CONTACT_PHONE || 'Facility phone not configured',
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'Facility email not configured',
   hours: OPERATING_HOURS.label,
 }
 

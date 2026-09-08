@@ -2,17 +2,27 @@ import { redirect } from 'next/navigation'
 
 import { createClient } from '@/lib/supabase/server'
 
+export function getLoginRedirect(user: unknown, nextPath: string) {
+  return user ? null : `/login?next=${encodeURIComponent(nextPath)}`
+}
+
+export function isAdminRole(role: unknown) {
+  return role === 'admin'
+}
+
 export async function requireUser(nextPath = '/dashboard') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?next=${encodeURIComponent(nextPath)}`)
+  if (!user) {
+    redirect(getLoginRedirect(user, nextPath)!)
+  }
   return { supabase, user }
 }
 
 export async function requireAdmin() {
   const { supabase, user } = await requireUser('/admin-login')
   const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle()
-  if (profile?.role !== 'admin') redirect('/dashboard')
+  if (!isAdminRole(profile?.role)) redirect('/dashboard')
   return { supabase, user }
 }
 

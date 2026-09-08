@@ -4,7 +4,7 @@ A sports turf reservation app for Cricket and Football with customer booking flo
 
 ## Status
 
-The booking engine, Supabase authentication, RLS, admin authorization, pricing, availability, and atomic double-booking protection are implemented. Razorpay checkout and webhook verification are not implemented in this branch, so do not treat the application as production-ready until payment verification and the full test matrix pass.
+The booking engine, Supabase authentication, RLS, admin authorization, pricing, availability, validation, automated rule tests, and atomic double-booking protection are implemented. Razorpay checkout and webhook verification are intentionally out of scope for this handover and remain clearly stubbed.
 
 ## Features
 
@@ -40,25 +40,26 @@ Use a real, controlled mailbox for Supabase email confirmation. Never commit `.e
 
 ## Environment variables
 
-Set the Supabase variables listed in `.env.example` and the application URL. Razorpay variables are server-only and should remain unset until the payment implementation is added. Do not expose `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEY`, or `RAZORPAY_KEY_SECRET` to the browser.
+Set the Supabase variables listed in `.env.example`. The optional public contact variables should be populated with the facility owner's real details before launch. Do not expose `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEY`, or future payment secrets to the browser.
 
 ## Database setup
 
-The live Supabase project contains `users`, `sports`, `pricing`, `bookings`, and `payments`, with foreign keys, indexes, RLS policies, signup synchronization, seed sports, pricing windows, and the `create_booking_atomic` function. Verify the schema and policies through the Supabase MCP before deploying changes. Keep schema changes in reviewed migrations for a separately managed production database.
+The live Supabase project is expected to contain `users`, `sports`, `pricing`, `bookings`, and `payments`, with foreign keys, indexes, RLS policies, signup synchronization, seed sports, pricing windows, and an atomic booking RPC. The application uses `users.name`, `users.mobile`, and `users.role` as the customer/profile source of truth. Before deployment, inspect the deployed RPC definitions, confirm `bookings.notes` and `p_notes`, verify atomic overlap protection, and audit RLS. The exact checks and non-destructive SQL are in [SUPABASE_HANDOVER.md](./SUPABASE_HANDOVER.md). Keep schema changes in reviewed migrations for a separately managed production database.
 
 ## Development and checks
 
 ```bash
 pnpm typecheck
+pnpm test
 pnpm build
 pnpm start
 ```
 
-Before release, exercise the customer and admin flows in a real browser and test ownership isolation with separate sessions. The current repository has no automated test runner configured; add tests before claiming the release gate is complete.
+The automated tests cover midnight/day/night pricing, slot generation and overlap detection, booking validation, and supported booking statuses. Before release, exercise the customer and admin flows in a real browser and test ownership isolation with separate sessions.
 
-## Payment setup and required tests
+## Payment scope
 
-Razorpay test mode must be implemented before release. Use test credentials only during development. The required test cases are successful, failed, cancelled, disconnected-frontend, invalid-signature, duplicate-webhook, duplicate-callback, and verification-failure flows. Webhooks must be signature-verified, idempotent, and authoritative for payment state; never trust a client-provided amount or payment status.
+Razorpay checkout, payment verification, and webhooks are intentionally not implemented in this pass. The booking UI keeps `payment_status` as a stub/pending state. A future payment implementation must use server-side amount calculation, signature verification, idempotent webhooks, and authoritative server-side payment state. Do not treat the current payment placeholder as a completed payment integration.
 
 ## Hostinger VPS deployment
 
@@ -106,7 +107,6 @@ RLS is defense in depth, not a replacement for server authorization. Keep role d
 
 ## Production checklist
 
-- [ ] Payment creation, verification, and idempotent webhooks implemented
 - [ ] All customer and admin functional tests pass
 - [ ] Invalid dates, durations, sports, sessions, and overlapping bookings rejected
 - [ ] Separate-user ownership and admin authorization tests pass
@@ -117,4 +117,4 @@ RLS is defense in depth, not a replacement for server authorization. Keep role d
 - [ ] Logs and monitoring alerts verified
 - [ ] Rollback procedure documented
 
-Until every item is checked, this application is not production-ready.
+Before handover, the owner must provide real facility contact details and the deployment operator must complete the Supabase schema/RLS review in `SUPABASE_HANDOVER.md`. HTTPS, backups, monitoring, deployment secrets, and rollback remain operational deployment tasks; Razorpay is intentionally excluded from this scope.
