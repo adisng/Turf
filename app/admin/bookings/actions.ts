@@ -1,30 +1,20 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/guards'
+import { BOOKING_STATUSES, type BookingRow, type BookingStatus } from '@/lib/types'
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+export async function updateBookingStatus(bookingId: BookingRow['id'], status: BookingStatus) {
+  const parsed = z.object({
+    bookingId: z.string().trim().min(1).max(100),
+    status: z.enum(BOOKING_STATUSES),
+  }).safeParse({ bookingId, status })
+  if (!parsed.success) return { error: 'Invalid booking status.' }
+  const { supabase } = await requireAdmin()
 
-export async function updateBookingStatus(bookingId: string, status: BookingStatus) {
-  const supabase = await createClient()
-
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) {
-    return { error: 'You must be signed in.' }
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', userData.user.id)
-    .maybeSingle()
-
-  if (!profile?.is_admin) {
-    return { error: 'Admin access required.' }
-  }
-
-  const { error } = await supabase.from('bookings').update({ status }).eq('id', bookingId)
+  const { error } = await supabase.from('bookings').update({ booking_status: parsed.data.status }).eq('id', parsed.data.bookingId)
 
   if (error) {
     return { error: error.message }

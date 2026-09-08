@@ -1,8 +1,5 @@
 import { redirect } from 'next/navigation'
 
-import { cookies } from 'next/headers'
-
-import { COOKIE_NAME, isAdminTokenValid } from '@/app/api/admin/login/route'
 import { createClient } from '@/lib/supabase/server'
 
 export async function requireUser(nextPath = '/dashboard') {
@@ -13,11 +10,6 @@ export async function requireUser(nextPath = '/dashboard') {
 }
 
 export async function requireAdmin() {
-  const cookieStore = await cookies()
-  if (isAdminTokenValid(cookieStore.get(COOKIE_NAME)?.value)) {
-    return { supabase: await createClient(), user: null }
-  }
-
   const { supabase, user } = await requireUser('/admin-login')
   const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).maybeSingle()
   if (profile?.role !== 'admin') redirect('/dashboard')

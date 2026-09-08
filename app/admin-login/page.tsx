@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { FormField, Input } from '@/components/ui/form-field'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState('')
@@ -16,20 +17,28 @@ export default function AdminLoginPage() {
     setError(null)
     setIsSubmitting(true)
 
-    const response = await fetch('/api/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+    const supabase = createClient()
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: username,
+      password,
     })
 
-    if (!response.ok) {
+    if (signInError) {
       setError('Invalid admin credentials.')
       setIsSubmitting(false)
       return
     }
 
-    // Use a full navigation so the newly-issued HTTP-only cookie is included
-    // in the very first request to the protected dashboard.
+    const response = await fetch('/api/admin/login', { method: 'POST' })
+    if (!response.ok) {
+      await supabase.auth.signOut()
+      setError(response.status === 403 ? 'Admin access required.' : 'Could not verify admin access.')
+      setIsSubmitting(false)
+      return
+    }
+
+    // Use a full navigation so the refreshed Supabase session is included
+    // in the first request to the protected dashboard.
     window.location.assign('/admin')
   }
 
@@ -39,7 +48,7 @@ export default function AdminLoginPage() {
         <div className="text-center">
           <p className="font-heading text-xs font-bold uppercase tracking-[0.22em] text-primary">TurfBooking</p>
           <h1 className="mt-3 font-heading text-xl font-black uppercase tracking-wide text-foreground">Admin access</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Use the testing credentials configured for this project.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Use your Supabase admin account.</p>
         </div>
         <form className="mt-8 flex flex-col gap-4" onSubmit={handleSubmit}>
           <FormField label="Admin username" htmlFor="admin-username">

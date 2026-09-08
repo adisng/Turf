@@ -1,17 +1,18 @@
 import { BarChart3, CalendarDays, IndianRupee, Users } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
+import type { BookingRow } from '@/lib/types'
 
 export default async function AdminAnalyticsPage() {
   const supabase = await createClient()
   const { data: bookings } = await supabase
     .from('bookings')
-    .select('sport_id, booking_date, total_amount, status')
+    .select('id, booking_reference, user_id, sport_id, booking_date, start_time, end_time, duration, amount, booking_status, payment_status, created_at')
     .order('booking_date', { ascending: true })
 
-  const rows = bookings ?? []
-  const confirmed = rows.filter((booking) => booking.status === 'confirmed' || booking.status === 'completed')
-  const revenue = confirmed.reduce((sum, booking) => sum + booking.total_amount, 0)
+  const rows = (bookings ?? []) as BookingRow[]
+  const confirmed = rows.filter((booking) => booking.booking_status === 'confirmed' || booking.booking_status === 'completed')
+  const revenue = confirmed.reduce((sum, booking) => sum + Number(booking.amount ?? 0), 0)
   const sportCounts = confirmed.reduce<Record<string, number>>((counts, booking) => {
     counts[booking.sport_id] = (counts[booking.sport_id] ?? 0) + 1
     return counts

@@ -9,9 +9,9 @@ export default async function AdminSlotsPage() {
   const today = new Date().toISOString().slice(0, 10)
   const { data: bookings } = await supabase
     .from('bookings')
-    .select('id, sport_id, booking_date, start_time, end_time, status')
+    .select('id, sport_id, booking_date, start_time, end_time, booking_status')
     .gte('booking_date', today)
-    .neq('status', 'cancelled')
+    .neq('booking_status', 'cancelled')
     .order('booking_date', { ascending: true })
     .order('start_time', { ascending: true })
     .limit(20)
@@ -36,7 +36,7 @@ export default async function AdminSlotsPage() {
                   <p className="text-xs text-muted-foreground">{new Date(`${booking.booking_date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">{booking.start_time.slice(0, 5)} – {booking.end_time.slice(0, 5)}</p>
-                <span className="border-[2px] border-primary/30 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-primary">{booking.status}</span>
+                <span className="border-[2px] border-primary/30 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-primary">{booking.booking_status}</span>
               </div>
             ))}
           </div>

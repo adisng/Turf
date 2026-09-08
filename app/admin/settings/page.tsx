@@ -14,7 +14,7 @@ export default function AdminSettingsPage() {
         <Setting icon={Settings} label="Facility" value={SITE.name} detail={SITE.tagline} />
         <Setting icon={Clock3} label="Operating hours" value={OPERATING_HOURS.label} detail="Used when generating available booking slots." />
         <Setting icon={Mail} label="Contact" value={CONTACT_INFO.email} detail={CONTACT_INFO.phone} />
-        <Setting icon={ShieldCheck} label="Access control" value="Admin-only" detail="Admin routes and mutations are protected by the profiles table." />
+        <Setting icon={ShieldCheck} label="Access control" value="Admin-only" detail="Admin routes and mutations are protected by the users role field." />
       </div>
     </div>
   )

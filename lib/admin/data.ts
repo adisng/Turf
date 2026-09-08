@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import type { BookingRow } from '@/lib/types'
 
 export const ACTIVE_STATUSES = ['pending', 'confirmed', 'completed'] as const
 
@@ -9,7 +10,7 @@ export async function getAdminBookings(filters?: { status?: string; date?: strin
   if (filters?.date) query = query.eq('booking_date', filters.date)
   if (filters?.sportId && filters.sportId !== 'all') query = query.eq('sport_id', filters.sportId)
   const { data, error } = await query.limit(200)
-  let rows = data ?? []
+  let rows = (data ?? []) as unknown as BookingRow[]
   if (filters?.search) {
     const term = filters.search.toLowerCase()
     rows = rows.filter((row: any) => [row.booking_reference, row.users?.name, row.users?.email, row.users?.mobile].some((value) => String(value ?? '').toLowerCase().includes(term)))

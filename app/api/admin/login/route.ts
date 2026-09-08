@@ -1,53 +1,51 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 
-const COOKIE_NAME = 'turf_admin_session'
+import { createClient } from '@/lib/supabase/server'
 
-function expectedToken() {
-  const username = process.env.ADMIN_USERNAME
-  const password = process.env.ADMIN_PASSWORD
-  if (!username || !password) return null
-  return createHmac('sha256', password).update(username).digest('hex')
+const WINDOW_MS = 15 * 60 * 1000
+const MAX_ATTEMPTS = 5
+const attempts = new Map<string, { count: number; resetAt: number }>()
+
+function clientIp(request: Request) {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+}
+
+function isRateLimited(ip: string) {
+  const now = Date.now()
+  const current = attempts.get(ip)
+  if (!current || current.resetAt <= now) {
+    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    return false
+  }
+  current.count += 1
+  return current.count > MAX_ATTEMPTS
 }
 
 export async function POST(request: Request) {
-  const configuredUsername = process.env.ADMIN_USERNAME
-  const configuredPassword = process.env.ADMIN_PASSWORD
-  if (!configuredUsername || !configuredPassword) {
-    return NextResponse.json({ error: 'Admin authentication is not configured.' }, { status: 503 })
+  const ip = clientIp(request)
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': '900' } },
+    )
   }
 
-  let body: { username?: unknown; password?: unknown }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
+  const supabase = await createClient()
+  const { data: userData } = await supabase.auth.getUser()
+  if (!userData.user) {
+    return NextResponse.json({ error: 'A valid Supabase session is required.' }, { status: 401 })
   }
 
-  if (body.username !== configuredUsername || body.password !== configuredPassword) {
-    return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 })
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userData.user.id)
+    .maybeSingle()
+
+  if (error || profile?.role !== 'admin') {
+    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 })
   }
 
-  const token = expectedToken()
-  const response = NextResponse.json({ ok: true })
-  const forwardedProto = request.headers.get('x-forwarded-proto')
-  const isHttps = forwardedProto
-    ? forwardedProto.split(',')[0].trim() === 'https'
-    : new URL(request.url).protocol === 'https:'
-  response.cookies.set(COOKIE_NAME, token!, {
-    httpOnly: true,
-    secure: isHttps,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 8,
-  })
-  return response
+  attempts.delete(ip)
+  return NextResponse.json({ ok: true })
 }
-
-export function isAdminTokenValid(token: string | undefined) {
-  const expected = expectedToken()
-  if (!expected || !token || token.length !== expected.length) return false
-  return timingSafeEqual(Buffer.from(token), Buffer.from(expected))
-}
-
-export { COOKIE_NAME }

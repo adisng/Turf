@@ -1,10 +1,15 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
 
+const BookingIdSchema = z.string().trim().min(1).max(100)
+
 export async function cancelBooking(bookingId: string): Promise<{ success: true } | { error: string }> {
+  const parsed = BookingIdSchema.safeParse(bookingId)
+  if (!parsed.success) return { error: 'Invalid booking.' }
   const supabase = await createClient()
 
   const {
@@ -17,8 +22,8 @@ export async function cancelBooking(bookingId: string): Promise<{ success: true 
 
   const { error } = await supabase
     .from('bookings')
-    .update({ status: 'cancelled' })
-    .eq('id', bookingId)
+    .update({ booking_status: 'cancelled' })
+    .eq('id', parsed.data)
     .eq('user_id', user.id)
 
   if (error) {

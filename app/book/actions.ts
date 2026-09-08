@@ -2,12 +2,55 @@
 
 import { revalidatePath } from 'next/cache'
 import { createHash, randomBytes } from 'node:crypto'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { generateCandidateSlots, minutesToTime, resolvePricingWindow, timeToMinutes, type PricingWindowRow } from '@/lib/slots'
 
-const VALID_DURATIONS = new Set([30, 60, 90, 120])
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/
+
+const BookingDateSchema = z.string().regex(DATE_RE).refine(isValidDate, 'Invalid date')
+const TimeSchema = z.string().regex(TIME_RE)
+const BookingIdSchema = z.string().trim().min(1).max(100)
+const IndianPhoneSchema = z.string().trim().transform((value) => {
+  const digits = value.replace(/\D/g, '')
+  return digits.startsWith('91') && digits.length === 12 ? digits.slice(2) : digits
+}).refine((value) => /^[6-9]\d{9}$/.test(value), 'Invalid Indian mobile number')
+const CreateBookingSchema = z.object({
+  sportId: z.string().trim().min(1).max(100),
+  date: BookingDateSchema,
+  startTime: TimeSchema,
+  endTime: TimeSchema,
+  durationMinutes: z.union([z.literal(30), z.literal(60), z.literal(90), z.literal(120)]),
+  customerName: z.string().trim().min(2).max(100),
+  customerPhone: IndianPhoneSchema,
+  customerEmail: z.string().trim().email().max(254),
+  notes: z.string().trim().max(500).optional(),
+  idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{16,80}$/),
+})
+const AvailableSlotsSchema = z.object({
+  sportId: z.string().trim().min(1).max(100),
+  date: BookingDateSchema,
+  durationMinutes: CreateBookingSchema.shape.durationMinutes,
+})
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function maxBookingDateIso() {
+  const date = new Date(`${todayIso()}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + 30)
+  return date.toISOString().slice(0, 10)
+}
+
+function isWithinBookingWindow(date: string) {
+  return date >= todayIso() && date <= maxBookingDateIso()
+}
+
+function normalizeEndMinutes(start: number, end: number) {
+  return end === 0 && start > 0 ? 1440 : end
+}
 
 export interface SlotOption {
   startTime: string
@@ -25,7 +68,8 @@ function isValidDate(date: string) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
 }
 
-function calculateSplitTotal(start: number, end: number, windows: PricingWindowRow[]) {
+function calculateSplitTotal(start: number, rawEnd: number, windows: PricingWindowRow[]) {
+  const end = normalizeEndMinutes(start, rawEnd)
   let total = 0
   for (let cursor = start; cursor < end;) {
     const window = resolvePricingWindow(cursor, windows)
@@ -40,21 +84,22 @@ function calculateSplitTotal(start: number, end: number, windows: PricingWindowR
 }
 
 export async function getAvailableSlots(input: { sportId: string; date: string; durationMinutes: number }): Promise<{ slots: SlotOption[] } | { error: string }> {
-  if (!input.sportId || !isValidDate(input.date) || input.date < new Date().toISOString().slice(0, 10)) return { error: 'Please choose a valid future date.' }
-  if (!VALID_DURATIONS.has(input.durationMinutes)) return { error: 'Please choose a valid duration.' }
+  const parsed = AvailableSlotsSchema.safeParse(input)
+  if (!parsed.success || !isWithinBookingWindow(parsed.data.date)) return { error: 'Please choose a date within the next 30 days.' }
+  const bookingInput = parsed.data
   const supabase = await createClient()
   const [{ data: pricingRows, error: pricingError }, { data: sports, error: sportError }] = await Promise.all([
     supabase.from('pricing').select('id, start_time, end_time, price_per_hour').eq('active', true).order('start_time'),
-    supabase.from('sports').select('id').eq('id', input.sportId).eq('active', true).maybeSingle(),
+    supabase.from('sports').select('id').eq('id', bookingInput.sportId).eq('active', true).maybeSingle(),
   ])
   if (pricingError || sportError) return { error: 'Could not load booking options. Please try again.' }
   if (!sports) return { error: 'That sport is not available.' }
-  const { data: existingBookings, error } = await supabase.from('bookings').select('start_time, end_time').eq('sport_id', input.sportId).eq('booking_date', input.date).in('booking_status', ['pending_payment', 'pending', 'confirmed'])
+  const { data: existingBookings, error } = await supabase.from('bookings').select('start_time, end_time').eq('sport_id', bookingInput.sportId).eq('booking_date', bookingInput.date).in('booking_status', ['pending_payment', 'pending', 'confirmed'])
   if (error) return { error: 'Could not check availability. Please try again.' }
   const windows: PricingWindowRow[] = (pricingRows ?? []).map((row) => ({ id: row.id, label: '', range_label: null, start_time: row.start_time, end_time: row.end_time, hourly_rate: Number(row.price_per_hour) }))
   const now = new Date()
   const today = now.toISOString().slice(0, 10)
-  const candidates = generateCandidateSlots(input.durationMinutes, existingBookings ?? [], input.date === today, now.getHours() * 60 + now.getMinutes())
+  const candidates = generateCandidateSlots(bookingInput.durationMinutes, existingBookings ?? [], bookingInput.date === today, now.getHours() * 60 + now.getMinutes())
   return { slots: candidates.map((slot) => {
     const window = resolvePricingWindow(slot.startMinutes, windows)
     const total = calculateSplitTotal(slot.startMinutes, slot.endMinutes, windows)
@@ -76,21 +121,23 @@ export interface CreateBookingInput {
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<{ success: true; booking: { reference: string; amount: number; token: string } } | { error: string }> {
-  if (!isValidDate(input.date) || input.date < new Date().toISOString().slice(0, 10)) return { error: 'Bookings must be made for today or a future date.' }
-  if (!VALID_DURATIONS.has(input.durationMinutes)) return { error: 'Please choose a valid duration.' }
-  if (!TIME_RE.test(input.startTime) || !TIME_RE.test(input.endTime) || !input.sportId) return { error: 'Please provide valid booking details.' }
-  if (!input.customerName.trim() || !/^[+\d][\d\s().-]{7,19}$/.test(input.customerPhone.trim())) return { error: 'Please provide a valid name and phone number.' }
-  const start = timeToMinutes(input.startTime)
-  const end = timeToMinutes(input.endTime)
-  if (start < 360 || end <= start || end > 1440 || end - start !== input.durationMinutes) return { error: 'That time slot is invalid.' }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.customerEmail.trim())) return { error: 'Please provide a valid email address.' }
-  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(input.idempotencyKey)) return { error: 'Please try submitting again.' }
+  const parsed = CreateBookingSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid booking details.' }
+  const booking = parsed.data
+  if (!isWithinBookingWindow(booking.date)) return { error: 'Booking date must be within the next 30 days.' }
+  const start = timeToMinutes(booking.startTime)
+  const end = normalizeEndMinutes(start, timeToMinutes(booking.endTime))
+  if (start < 360 || end <= start || end > 1440 || end - start !== booking.durationMinutes) return { error: 'That time slot is invalid.' }
   const supabase = await createClient()
   const publicToken = randomBytes(32).toString('base64url')
   const tokenHash = createHash('sha256').update(publicToken).digest('hex')
-  const { data, error } = await supabase.rpc('create_guest_booking_atomic', { p_sport_id: input.sportId, p_booking_date: input.date, p_start_time: input.startTime, p_end_time: input.endTime === '00:00' ? '24:00' : input.endTime, p_duration_minutes: input.durationMinutes, p_customer_name: input.customerName.trim(), p_customer_phone: input.customerPhone.trim(), p_customer_email: input.customerEmail.trim(), p_idempotency_key: input.idempotencyKey, p_public_token_hash: tokenHash }).single() as { data: { id: string; booking_reference: string; amount: number | string } | null; error: { message: string } | null }
+  const { data, error } = await supabase.rpc('create_guest_booking_atomic', { p_sport_id: booking.sportId, p_booking_date: booking.date, p_start_time: booking.startTime, p_end_time: end === 1440 ? '24:00' : booking.endTime, p_duration_minutes: booking.durationMinutes, p_customer_name: booking.customerName, p_customer_phone: booking.customerPhone, p_customer_email: booking.customerEmail, p_notes: booking.notes ?? '', p_idempotency_key: booking.idempotencyKey, p_public_token_hash: tokenHash }).single() as { data: { id: string; booking_reference: string; amount: number | string } | null; error: { message: string } | null }
   if (error) {
     const message = error.message
+    if (message.includes('p_notes') || message.includes('create_guest_booking_atomic')) {
+      // The deployed RPC must accept p_notes; otherwise the booking schema needs a reviewed migration.
+      console.warn('Booking notes could not be persisted because the deployed booking RPC does not accept p_notes.')
+    }
     if (message.includes('SLOT_UNAVAILABLE')) return { error: 'This slot is no longer available. Please choose another.' }
     if (message.includes('INVALID_SPORT')) return { error: 'That sport is not available.' }
     if (message.includes('PRICE_UNAVAILABLE')) return { error: 'Pricing is unavailable for that time. Please choose another slot.' }
@@ -103,9 +150,11 @@ export async function createBooking(input: CreateBookingInput): Promise<{ succes
 }
 
 export async function getBooking(bookingId: string) {
+  const parsed = BookingIdSchema.safeParse(bookingId)
+  if (!parsed.success) return { error: 'Booking not found.' }
   const supabase = await createClient(); const { data: user } = await supabase.auth.getUser()
   if (!user.user) return { error: 'Unauthorized' }
-  const { data, error } = await supabase.from('bookings').select('id, booking_reference, user_id, sport_id, booking_date, start_time, end_time, duration, amount, booking_status, payment_status, created_at, sports(name)').eq('id', bookingId).eq('user_id', user.user.id).maybeSingle()
+  const { data, error } = await supabase.from('bookings').select('id, booking_reference, user_id, sport_id, booking_date, start_time, end_time, duration, amount, booking_status, payment_status, created_at, sports(name)').eq('id', parsed.data).eq('user_id', user.user.id).maybeSingle()
   return error || !data ? { error: 'Booking not found.' } : { booking: data }
 }
 
@@ -117,9 +166,11 @@ export async function getCustomerBookings() {
 }
 
 export async function calculatePrice(input: { startTime: string; endTime: string }) {
+  const parsed = z.object({ startTime: TimeSchema, endTime: TimeSchema }).safeParse(input)
+  if (!parsed.success) return { error: 'Invalid time range.' }
   const supabase = await createClient(); const { data, error } = await supabase.from('pricing').select('id, start_time, end_time, price_per_hour').eq('active', true)
   if (error) return { error: 'Could not load pricing.' }
   const windows = (data ?? []).map((row) => ({ id: row.id, label: '', range_label: null, start_time: row.start_time, end_time: row.end_time, hourly_rate: Number(row.price_per_hour) }))
-  const total = calculateSplitTotal(timeToMinutes(input.startTime), timeToMinutes(input.endTime), windows)
+  const total = calculateSplitTotal(timeToMinutes(parsed.data.startTime), timeToMinutes(parsed.data.endTime), windows)
   return total === null ? { error: 'Pricing unavailable.' } : { total }
 }

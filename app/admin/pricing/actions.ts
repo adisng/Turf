@@ -1,40 +1,22 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 
-import { createClient } from '@/lib/supabase/server'
-
-async function requireAdmin() {
-  const supabase = await createClient()
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData?.user) {
-    return { supabase: null, error: 'You must be signed in.' }
-  }
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', userData.user.id)
-    .maybeSingle()
-  if (!profile?.is_admin) {
-    return { supabase: null, error: 'Admin access required.' }
-  }
-  return { supabase, error: null }
-}
+import { requireAdmin } from '@/lib/auth/guards'
 
 export async function updatePricingWindow(id: string, hourlyRate: number) {
-  const { supabase, error: authError } = await requireAdmin()
-  if (!supabase) {
-    return { error: authError }
-  }
-
-  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0 || hourlyRate > 100000) {
-    return { error: 'Enter a valid hourly rate.' }
-  }
+  const parsed = z.object({
+    id: z.string().trim().min(1).max(100),
+    hourlyRate: z.number().finite().gt(0).max(100000),
+  }).safeParse({ id, hourlyRate })
+  if (!parsed.success) return { error: 'Enter a valid hourly rate.' }
+  const { supabase } = await requireAdmin()
 
   const { error } = await supabase
-    .from('pricing_windows')
-    .update({ hourly_rate: Math.round(hourlyRate) })
-    .eq('id', id)
+    .from('pricing')
+    .update({ price_per_hour: Math.round(parsed.data.hourlyRate) })
+    .eq('id', parsed.data.id)
 
   if (error) {
     return { error: error.message }
