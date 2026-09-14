@@ -11,6 +11,7 @@ export default async function ProfilePage() {
 
   let fullName = ''
   let phone = ''
+  let marketingOptIn = false
 
   if (user) {
     const { data: profile } = await supabase
@@ -20,6 +21,12 @@ export default async function ProfilePage() {
       .single()
     fullName = profile?.name ?? ''
     phone = profile?.mobile ?? ''
+    const { data: marketingContact } = await supabase
+      .from('marketing_contacts')
+      .select('marketing_opt_in')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    marketingOptIn = marketingContact?.marketing_opt_in ?? false
   }
 
   return (
@@ -33,7 +40,7 @@ export default async function ProfilePage() {
           </p>
         </div>
 
-        <ProfileForm email={user?.email ?? ''} initialFullName={fullName} initialPhone={phone} />
+        <ProfileForm email={user?.email ?? ''} initialFullName={fullName} initialPhone={phone} initialMarketingOptIn={marketingOptIn} />
       </div>
     </AccountShell>
   )

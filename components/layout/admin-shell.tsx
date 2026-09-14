@@ -11,6 +11,7 @@ import {
   Tag,
   BarChart3,
   Settings,
+  MessageCircle,
   ArrowUpRight,
 } from 'lucide-react'
 
@@ -21,6 +22,7 @@ const ADMIN_LINKS = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/bookings', label: 'Bookings', icon: CalendarClock },
   { href: '/admin/customers', label: 'Customers', icon: Users },
+  { href: '/admin/marketing', label: 'Marketing', icon: MessageCircle },
   { href: '/admin/sports', label: 'Sports', icon: Trophy },
   { href: '/admin/slots', label: 'Slots', icon: Grid3x3 },
   { href: '/admin/pricing', label: 'Pricing', icon: Tag },

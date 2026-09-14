@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 
 import { createClient } from '@/lib/supabase/server'
 
 const WINDOW_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS = 5
 const attempts = new Map<string, { count: number; resetAt: number }>()
+const AdminLoginSchema = z.object({
+  username: z.string().trim().email().max(254),
+  password: z.string().min(1),
+})
 
 function clientIp(request: Request) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -30,7 +35,28 @@ export async function POST(request: Request) {
     )
   }
 
+  let payload: unknown
+  try {
+    payload = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+  }
+
+  const credentials = AdminLoginSchema.safeParse(payload)
+  if (!credentials.success) {
+    return NextResponse.json({ error: 'Invalid admin credentials.' }, { status: 400 })
+  }
+
   const supabase = await createClient()
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: credentials.data.username,
+    password: credentials.data.password,
+  })
+
+  if (authError || !authData.user) {
+    return NextResponse.json({ error: 'Invalid admin credentials.' }, { status: 401 })
+  }
+
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) {
     return NextResponse.json({ error: 'A valid Supabase session is required.' }, { status: 401 })

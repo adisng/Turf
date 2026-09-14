@@ -42,9 +42,19 @@ Use a real, controlled mailbox for Supabase email confirmation. Never commit `.e
 
 Set the Supabase variables listed in `.env.example`. The optional public contact variables should be populated with the facility owner's real details before launch. Do not expose `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEY`, or future payment secrets to the browser.
 
+### WhatsApp marketing and Google Sheets
+
+Run `supabase/20260914_marketing_contacts.sql` in the Supabase SQL editor before enabling marketing preferences. Customers may opt in during registration or from their profile; booking is never conditional on consent. The app records the consent and opt-out timestamps in Supabase, and only opted-in contacts are eligible for export or messaging.
+
+To mirror consented contacts to Google Sheets, create a Google Cloud service account, enable the Google Sheets API, create a Sheet in the facility owner's Google account, and share that Sheet with the service account email. Set `GOOGLE_SHEETS_MARKETING_SHEET_ID` and `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` as server-only deployment variables. The app creates a `Marketing contacts` tab and keeps its rows updated by contact ID. Do not expose the service-account JSON in browser variables or commit it to Git. If Google Sheets is not configured, Supabase continues to store the consent records and the admin CSV export remains available.
+
 ## Database setup
 
 The live Supabase project is expected to contain `users`, `sports`, `pricing`, `bookings`, and `payments`, with foreign keys, indexes, RLS policies, signup synchronization, seed sports, pricing windows, and an atomic booking RPC. The application uses `users.name`, `users.mobile`, and `users.role` as the customer/profile source of truth. Before deployment, inspect the deployed RPC definitions, confirm `bookings.notes` and `p_notes`, verify atomic overlap protection, and audit RLS. The exact checks and non-destructive SQL are in [SUPABASE_HANDOVER.md](./SUPABASE_HANDOVER.md). Keep schema changes in reviewed migrations for a separately managed production database.
+
+### Admin account
+
+Create the handover admin account in Supabase Auth with email `admin@testing.com`, then run `supabase/20260914_admin_account.sql` in the Supabase SQL editor to grant that user the `admin` role. Keep the password only in the handover notes or password manager; do not commit it to Git.
 
 ## Development and checks
 

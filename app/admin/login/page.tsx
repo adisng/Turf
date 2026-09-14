@@ -9,7 +9,7 @@ import { FormField, Input } from '@/components/ui/form-field'
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState('admin@testing.com')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -44,8 +44,8 @@ export default function AdminLoginPage() {
           <p className="mt-2 text-sm text-muted-foreground">Use the testing credentials configured for this project.</p>
         </div>
         <form className="mt-8 flex flex-col gap-4" onSubmit={handleSubmit}>
-          <FormField label="Admin username" htmlFor="admin-username">
-            <Input id="admin-username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
+          <FormField label="Admin email" htmlFor="admin-username">
+            <Input id="admin-username" type="email" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
           </FormField>
           <FormField label="Admin password" htmlFor="admin-password">
             <Input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />

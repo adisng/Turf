@@ -14,6 +14,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -39,6 +40,7 @@ export default function RegisterPage() {
         data: {
           full_name: fullName,
           phone,
+          marketing_opt_in: marketingOptIn,
         },
       },
     })
@@ -137,6 +139,18 @@ export default function RegisterPage() {
               autoComplete="new-password"
             />
           </FormField>
+          <label className="flex cursor-pointer items-start gap-3 border-[2px] border-border bg-card-secondary p-4 text-sm text-muted-foreground">
+            <input
+              id="register-marketing-consent"
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(event) => setMarketingOptIn(event.target.checked)}
+              className="mt-0.5 size-4 accent-primary"
+            />
+            <span>
+              Send me turf offers, match updates, and promotional messages on WhatsApp. You can opt out anytime in your profile.
+            </span>
+          </label>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" size="lg" className="mt-2" disabled={isSubmitting}>
             {isSubmitting ? 'Creating account…' : 'Create account'}

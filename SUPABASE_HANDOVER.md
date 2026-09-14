@@ -2,6 +2,12 @@
 
 The application code is prepared for Supabase, but the live schema and function definitions are managed outside this repository. Run these checks in the Supabase SQL editor with an owner-level connection before production handover.
 
+## Admin account
+
+Create the admin user in Supabase Auth with email `admin@testing.com`. After the Auth user exists, run `supabase/20260914_admin_account.sql` to upsert the matching `public.users` row and set `role = 'admin'`.
+
+Do not store the admin password in Git. Share it through a password manager or the final private handover channel only.
+
 ## Booking notes and RPC
 
 Inspect the deployed function before changing it:
