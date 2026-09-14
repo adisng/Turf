@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   })
 
   if (authError || !authData.user) {
-    return NextResponse.json({ error: 'Invalid admin credentials.' }, { status: 401 })
+    return NextResponse.json({ error: authError?.message || 'Invalid admin credentials.' }, { status: 401 })
   }
 
   const { data: userData } = await supabase.auth.getUser()
