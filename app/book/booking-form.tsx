@@ -161,36 +161,78 @@ export function BookingForm({ sports, initialDate, defaultName, defaultPhone, de
         </div>
       </div>
 
-      {/* Date + duration */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Date" htmlFor="booking-date">
-          <Input
-            id="booking-date"
-            type="date"
-            min={todayIso()}
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </FormField>
-        <FormField label="Duration" htmlFor="booking-duration">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {DURATION_OPTIONS.map((option) => (
+      {/* Touch-Friendly Sliding Date Cards for Mobile & Desktop */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground">Select date</p>
+            <p className="text-xs text-muted-foreground">Swipe or scroll horizontally to select date</p>
+          </div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-primary">30 Days Open</span>
+        </div>
+
+        {/* Sliding Date Card Carousel */}
+        <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 snap-x snap-mandatory scrollbar-none -mx-1 px-1 touch-pan-x">
+          {Array.from({ length: 14 }).map((_, i) => {
+            const d = new Date()
+            d.setDate(d.getDate() + i)
+            const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            const dayName = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short' })
+            const dayNum = d.getDate()
+            const monthName = d.toLocaleDateString('en-US', { month: 'short' })
+            const isSelected = date === iso
+
+            return (
               <button
-                key={option.minutes}
+                key={iso}
                 type="button"
-                onClick={() => setDurationMinutes(option.minutes)}
+                onClick={() => setDate(iso)}
                 className={cn(
-                  'min-h-11 rounded-full border px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  durationMinutes === option.minutes
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40',
+                  'snap-start flex min-w-[85px] flex-col items-center justify-center rounded-xl border p-3 text-center transition-all duration-200 shrink-0 select-none touch-manipulation',
+                  isSelected
+                    ? 'border-primary bg-primary text-primary-foreground shadow-md scale-[1.02] ring-2 ring-primary'
+                    : 'border-border bg-card text-muted-foreground hover:border-primary/50 hover:text-foreground active:scale-95',
                 )}
               >
-                {option.label}
+                <span className="text-[10px] font-black uppercase tracking-wider opacity-80">{dayName}</span>
+                <span className="font-heading text-lg font-black leading-tight my-0.5">{dayNum}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider">{monthName}</span>
               </button>
-            ))}
-          </div>
-        </FormField>
+            )
+          })}
+        </div>
+
+        {/* Custom Calendar Date & Duration Picker */}
+        <div className="mt-1 grid gap-4 sm:grid-cols-2">
+          <FormField label="Or choose custom date" htmlFor="booking-date">
+            <Input
+              id="booking-date"
+              type="date"
+              min={todayIso()}
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </FormField>
+          <FormField label="Duration" htmlFor="booking-duration">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {DURATION_OPTIONS.map((option) => (
+                <button
+                  key={option.minutes}
+                  type="button"
+                  onClick={() => setDurationMinutes(option.minutes)}
+                  className={cn(
+                    'min-h-11 rounded-xl border px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    durationMinutes === option.minutes
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40',
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </FormField>
+        </div>
       </div>
       <p className="text-xs font-bold uppercase tracking-wider text-subtle-foreground">Operating hours: {OPERATING_HOURS.label}</p>
 
