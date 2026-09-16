@@ -47,14 +47,20 @@ export async function getAvailableSlots(input: { sportId: string; date: string; 
     supabase.from('pricing').select('id, start_time, end_time, price_per_hour').eq('active', true).order('start_time'),
     supabase.from('sports').select('id').eq('id', input.sportId).eq('active', true).maybeSingle(),
   ])
-  if (pricingError || sportError) return { error: 'Could not load booking options. Please try again.' }
-  if (!sports) return { error: 'That sport is not available.' }
+  if (pricingError) return { error: 'Could not load booking options. Please try again.' }
+  if (sportError && !input.sportId.includes('default')) return { error: 'Could not load sports options.' }
+  if (!sports && !input.sportId.includes('default')) return { error: 'That sport is not available.' }
   const { data: existingBookings, error } = await supabase.from('bookings').select('start_time, end_time').eq('sport_id', input.sportId).eq('booking_date', input.date).in('booking_status', ['pending_payment', 'pending', 'confirmed'])
   if (error) return { error: 'Could not check availability. Please try again.' }
-  // If database pricing table is empty, fallback to default standard turf rate (₹1200/hr)
+  // If database pricing table is empty, fallback to peak/off-peak differential pricing in a single day:
+  // - Day rate (06:00 - 17:00): ₹1,000/hr
+  // - Night / Prime rate (17:00 - 24:00): ₹1,500/hr (Floodlights / Prime demand)
   const windows: PricingWindowRow[] = pricingRows && pricingRows.length > 0
     ? pricingRows.map((row) => ({ id: row.id, label: '', range_label: null, start_time: row.start_time, end_time: row.end_time, hourly_rate: Number(row.price_per_hour) }))
-    : [{ id: 'default', label: 'Standard Rate', range_label: null, start_time: '06:00', end_time: '24:00', hourly_rate: 1200 }]
+    : [
+        { id: 'day-rate', label: 'Day Rate (06:00 - 17:00)', range_label: '06:00 - 17:00', start_time: '06:00', end_time: '17:00', hourly_rate: 1000 },
+        { id: 'night-rate', label: 'Night / Prime Rate (17:00 - 24:00)', range_label: '17:00 - 24:00', start_time: '17:00', end_time: '24:00', hourly_rate: 1500 },
+      ]
 
   const now = new Date()
   const today = now.toISOString().slice(0, 10)

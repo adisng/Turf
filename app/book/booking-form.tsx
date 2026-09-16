@@ -161,17 +161,17 @@ export function BookingForm({ sports, initialDate, defaultName, defaultPhone, de
         </div>
       </div>
 
-      {/* Touch-Friendly Sliding Date Cards for Mobile & Desktop */}
+      {/* Date selection with Quick Chips & Calendar Picker */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-foreground">Select date</p>
-            <p className="text-xs text-muted-foreground">Swipe or scroll horizontally to select date</p>
+            <p className="text-xs text-muted-foreground">Pick a date to view live slots</p>
           </div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-primary">30 Days Open</span>
         </div>
 
-        {/* Sliding Date Card Carousel */}
+        {/* Sliding Date Cards Strip */}
         <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 snap-x snap-mandatory scrollbar-none -mx-1 px-1 touch-pan-x">
           {Array.from({ length: 14 }).map((_, i) => {
             const d = new Date()
@@ -303,12 +303,19 @@ export function BookingForm({ sports, initialDate, defaultName, defaultPhone, de
                   </div>
 
                   <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2">
-                    <span className="text-xs font-bold text-foreground">
-                      {CURRENCY}{slot.total.toLocaleString('en-IN')}
-                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">
+                        {CURRENCY}{slot.total.toLocaleString('en-IN')}
+                      </span>
+                      {slot.pricingWindowLabel ? (
+                        <span className="text-[10px] text-muted-foreground block font-medium">
+                          {slot.pricingWindowLabel.includes('Night') ? '🌙 Peak Rate' : '☀️ Day Rate'}
+                        </span>
+                      ) : null}
+                    </div>
                     <span
                       className={cn(
-                        'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                        'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider self-end',
                         isSelected
                           ? 'bg-primary text-primary-foreground'
                           : slot.available

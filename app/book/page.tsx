@@ -10,6 +10,13 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
     supabase.from('sports').select('id, name, description').eq('active', true).order('name'),
     supabase.auth.getUser(),
   ])
+  const sportsList = (sports && sports.length > 0)
+    ? sports.map((sport) => ({ id: sport.id, name: sport.name, tagline: sport.description }))
+    : [
+        { id: 'cricket-default', name: 'Cricket Turf', tagline: 'Professional artificial turf with pitch lighting' },
+        { id: 'football-default', name: 'Football Turf', tagline: '5-a-side FIFA approved turf with goal nets' },
+      ]
+
   return (
     <>
       <Navbar />
@@ -19,7 +26,7 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
           <h1 className="font-heading text-4xl font-black uppercase tracking-tight text-foreground sm:text-5xl">Book your slot</h1>
           <p className="max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">Pick a sport, date, and duration to see live availability and reserve your turf. You can pay securely at checkout.</p>
         </div>
-        <BookingForm sports={(sports ?? []).map((sport) => ({ id: sport.id, name: sport.name, tagline: sport.description }))} initialDate={params.date} defaultName={user?.user_metadata?.name ?? ''} defaultPhone={user?.user_metadata?.mobile ?? ''} defaultEmail={user?.email ?? ''} />
+        <BookingForm sports={sportsList} initialDate={params.date} defaultName={user?.user_metadata?.name ?? ''} defaultPhone={user?.user_metadata?.mobile ?? ''} defaultEmail={user?.email ?? ''} />
       </main>
       <Footer />
     </>
