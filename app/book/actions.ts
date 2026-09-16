@@ -51,10 +51,17 @@ export async function getAvailableSlots(input: { sportId: string; date: string; 
   if (!sports) return { error: 'That sport is not available.' }
   const { data: existingBookings, error } = await supabase.from('bookings').select('start_time, end_time').eq('sport_id', input.sportId).eq('booking_date', input.date).in('booking_status', ['pending_payment', 'pending', 'confirmed'])
   if (error) return { error: 'Could not check availability. Please try again.' }
-  const windows: PricingWindowRow[] = (pricingRows ?? []).map((row) => ({ id: row.id, label: '', range_label: null, start_time: row.start_time, end_time: row.end_time, hourly_rate: Number(row.price_per_hour) }))
+  // If database pricing table is empty, fallback to default standard turf rate (₹1200/hr)
+  const windows: PricingWindowRow[] = pricingRows && pricingRows.length > 0
+    ? pricingRows.map((row) => ({ id: row.id, label: '', range_label: null, start_time: row.start_time, end_time: row.end_time, hourly_rate: Number(row.price_per_hour) }))
+    : [{ id: 'default', label: 'Standard Rate', range_label: null, start_time: '06:00', end_time: '24:00', hourly_rate: 1200 }]
+
   const now = new Date()
   const today = now.toISOString().slice(0, 10)
-  const candidates = generateCandidateSlots(input.durationMinutes, existingBookings ?? [], input.date === today, now.getHours() * 60 + now.getMinutes())
+  const isToday = input.date === today
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+
+  const candidates = generateCandidateSlots(input.durationMinutes, existingBookings ?? [], isToday, currentMinutes)
   const slots = candidates
     .map((slot) => {
       const window = resolvePricingWindow(slot.startMinutes, windows)
@@ -63,10 +70,10 @@ export async function getAvailableSlots(input: { sportId: string; date: string; 
         startTime: minutesToTime(slot.startMinutes),
         endTime: minutesToTime(slot.endMinutes),
         available: slot.available && total !== null,
-        hourlyRate: window?.hourly_rate ?? 0,
-        total: total ?? 0,
+        hourlyRate: window?.hourly_rate ?? 1200,
+        total: total ?? (slot.endMinutes - slot.startMinutes) * 20,
         pricingWindowId: window?.id ?? null,
-        pricingWindowLabel: window?.label || (window ? `${window.start_time}–${window.end_time}` : null),
+        pricingWindowLabel: window?.label || (window ? `${window.start_time}–${window.end_time}` : '06:00–24:00'),
       }
     })
 
