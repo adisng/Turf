@@ -195,31 +195,36 @@ export function BookingForm({ sports, initialDate, defaultName, defaultPhone, de
       <p className="text-xs font-bold uppercase tracking-wider text-subtle-foreground">Operating hours: {OPERATING_HOURS.label}</p>
 
       {/* Slot grid */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-foreground">Available slots</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground">Available slots</p>
+            <p className="text-xs text-muted-foreground">Select an open slot below to reserve</p>
+          </div>
           {!isLoadingSlots && slots.length > 0 ? (
-            <Badge variant={availableCount > 0 ? 'success' : 'destructive'}>
-              {availableCount} of {slots.length} open
+            <Badge variant={availableCount > 0 ? 'success' : 'destructive'} className="px-3 py-1 text-xs font-bold">
+              {availableCount} of {slots.length} slots open
             </Badge>
           ) : null}
         </div>
 
         {isLoadingSlots ? (
-          <div className="flex items-center gap-2 border-[2px] border-border bg-card px-5 py-8 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Checking availability…
+          <div className="flex items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-12 text-sm font-medium text-muted-foreground shadow-sm">
+            <Loader2 className="size-5 animate-spin text-primary" />
+            Checking live slot availability…
           </div>
         ) : slotsError ? (
-          <p className="text-sm text-destructive">{slotsError}</p>
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-center text-sm font-semibold text-destructive">
+            {slotsError}
+          </div>
         ) : slots.length === 0 ? (
           <EmptyState
             icon={CalendarCheck}
             title="No slots for this selection"
-            description="Try a different date or duration."
+            description="Try choosing a different date or duration."
           />
         ) : (
-          <div className="max-h-[420px] overflow-y-auto divide-y divide-border rounded-xl border border-border bg-card">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {slots.map((slot) => {
               const isSelected = selectedSlot?.startTime === slot.startTime
               return (
@@ -231,21 +236,47 @@ export function BookingForm({ sports, initialDate, defaultName, defaultPhone, de
                   aria-label={`${slot.startTime} to ${slot.endTime}, ${isSelected ? 'selected' : slot.available ? 'available' : 'booked'}`}
                   aria-disabled={!slot.available}
                   className={cn(
-                    'flex min-h-13 w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed',
+                    'relative flex flex-col justify-between rounded-xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     isSelected
-                      ? 'border-l-4 border-l-accent bg-secondary'
+                      ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary'
                       : slot.available
-                        ? 'hover:bg-secondary/60'
-                        : 'bg-destructive/60 text-destructive-foreground opacity-70',
+                        ? 'border-border bg-card hover:border-primary/50 hover:bg-card/80 hover:shadow-sm hover:-translate-y-0.5'
+                        : 'cursor-not-allowed border-border/50 bg-muted/40 opacity-40',
                   )}
                 >
-                  <span className="font-heading font-bold text-foreground">{slot.startTime} – {slot.endTime}</span>
-                  <span className={cn(
-                    'rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wider',
-                    isSelected ? 'bg-accent text-accent-foreground' : slot.available ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground',
-                  )}>
-                    {isSelected ? 'Selected' : slot.available ? `${CURRENCY}${slot.total.toLocaleString('en-IN')} · Available` : 'Booked'}
-                  </span>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading text-base font-extrabold text-foreground">
+                        {slot.startTime}
+                      </span>
+                      {isSelected ? (
+                        <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                          ✓
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      to {slot.endTime}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2">
+                    <span className="text-xs font-bold text-foreground">
+                      {CURRENCY}{slot.total.toLocaleString('en-IN')}
+                    </span>
+                    <span
+                      className={cn(
+                        'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                        isSelected
+                          ? 'bg-primary text-primary-foreground'
+                          : slot.available
+                            ? 'bg-success/15 text-success'
+                            : 'bg-destructive/15 text-destructive',
+                      )}
+                    >
+                      {isSelected ? 'Selected' : slot.available ? 'Open' : 'Booked'}
+                    </span>
+                  </div>
                 </button>
               )
             })}
