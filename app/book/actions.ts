@@ -69,9 +69,6 @@ export async function getAvailableSlots(input: { sportId: string; date: string; 
         pricingWindowLabel: window?.label || (window ? `${window.start_time}–${window.end_time}` : null),
       }
     })
-    // Occupied starts are removed entirely. A booking from 10:00–11:00
-    // must also hide overlapping starts such as 10:30, not merely disable them.
-    .filter((slot) => slot.available)
 
   return { slots }
 }
